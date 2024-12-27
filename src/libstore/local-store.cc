@@ -577,8 +577,8 @@ void LocalStore::makeStoreWritable()
         throw SysError("getting info about the Nix store mount point");
 
     if (stat.f_flag & ST_RDONLY) {
-        if (mount(0, realStoreDir.get().c_str(), "none", MS_REMOUNT | MS_BIND, 0) == -1)
-            throw SysError("remounting %1% writable", realStoreDir);
+        if (mount(0, realStoreDir.get().c_str(), "none", stat.f_flag & ~ST_RDONLY, 0) == -1)
+            throw SysError("remounting %1% writable patched", realStoreDir);
     }
 #endif
 }
