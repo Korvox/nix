@@ -4,6 +4,7 @@
 #include "fetch-to-store.hh"
 #include "json-utils.hh"
 #include "store-path-accessor.hh"
+#include "fetch-settings.hh"
 
 #include <nlohmann/json.hpp>
 
@@ -66,7 +67,7 @@ Input Input::fromURL(
         }
     }
 
-    throw Error("input '%s' is unsupported", url.url);
+    throw Error("input '%s' is unsupported", url);
 }
 
 Input Input::fromAttrs(const Settings & settings, Attrs && attrs)
@@ -159,6 +160,12 @@ bool Input::isFinal() const
     return maybeGetBoolAttr(attrs, "__final").value_or(false);
 }
 
+std::optional<std::string> Input::isRelative() const
+{
+    assert(scheme);
+    return scheme->isRelative(*this);
+}
+
 Attrs Input::toAttrs() const
 {
     return attrs;
@@ -179,6 +186,7 @@ bool Input::contains(const Input & other) const
     return false;
 }
 
+// FIXME: remove
 std::pair<StorePath, Input> Input::fetchToStore(ref<Store> store) const
 {
     if (!scheme)
@@ -193,10 +201,6 @@ std::pair<StorePath, Input> Input::fetchToStore(ref<Store> store) const
             auto narHash = store->queryPathInfo(storePath)->narHash;
             result.attrs.insert_or_assign("narHash", narHash.to_string(HashFormat::SRI, true));
 
-            // FIXME: we would like to mark inputs as final in
-            // getAccessorUnchecked(), but then we can't add
-            // narHash. Or maybe narHash should be excluded from the
-            // concept of "final" inputs?
             result.attrs.insert_or_assign("__final", Explicit<bool>(true));
 
             assert(result.isFinal());
@@ -277,6 +281,8 @@ std::pair<ref<SourceAccessor>, Input> Input::getAccessor(ref<Store> store) const
     try {
         auto [accessor, result] = getAccessorUnchecked(store);
 
+        result.attrs.insert_or_assign("__final", Explicit<bool>(true));
+
         checkLocks(*this, result);
 
         return {accessor, std::move(result)};
@@ -345,7 +351,7 @@ void Input::clone(const Path & destDir) const
     scheme->clone(*this, destDir);
 }
 
-std::optional<Path> Input::getSourcePath() const
+std::optional<std::filesystem::path> Input::getSourcePath() const
 {
     assert(scheme);
     return scheme->getSourcePath(*this);
@@ -448,7 +454,7 @@ Input InputScheme::applyOverrides(
     return input;
 }
 
-std::optional<Path> InputScheme::getSourcePath(const Input & input) const
+std::optional<std::filesystem::path> InputScheme::getSourcePath(const Input & input) const
 {
     return {};
 }

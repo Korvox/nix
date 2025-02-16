@@ -1,16 +1,16 @@
-{ lib
-, stdenv
-, mkMesonLibrary
+{
+  lib,
+  mkMesonLibrary,
 
-, nix-util
-, nix-store
-, nix-fetchers
-, nix-expr
-, nlohmann_json
+  nix-util,
+  nix-store,
+  nix-fetchers,
+  nix-expr,
+  nlohmann_json,
 
-# Configuration Options
+  # Configuration Options
 
-, version
+  version,
 }:
 
 let
@@ -47,10 +47,6 @@ mkMesonLibrary (finalAttrs: {
       chmod u+w ./.version
       echo ${version} > ../../.version
     '';
-
-  env = lib.optionalAttrs (stdenv.isLinux && !(stdenv.hostPlatform.isStatic && stdenv.system == "aarch64-linux")) {
-    LDFLAGS = "-fuse-ld=gold";
-  };
 
   meta = {
     platforms = lib.platforms.unix ++ lib.platforms.windows;

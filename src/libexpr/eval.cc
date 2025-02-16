@@ -406,7 +406,7 @@ void EvalState::checkURI(const std::string & uri)
 
     /* If the URI is a path, then check it against allowedPaths as
        well. */
-    if (hasPrefix(uri, "/")) {
+    if (isAbsolute(uri)) {
         if (auto rootFS2 = rootFS.dynamic_pointer_cast<AllowListSourceAccessor>())
             rootFS2->checkAccess(CanonPath(uri));
         return;
@@ -2384,7 +2384,7 @@ StorePath EvalState::copyPathToStore(NixStringContext & context, const SourcePat
         : [&]() {
             auto dstPath = fetchToStore(
                 *store,
-                path.resolveSymlinks(),
+                path.resolveSymlinks(SymlinkResolution::Ancestors),
                 settings.readOnlyMode ? FetchMode::DryRun : FetchMode::Copy,
                 path.baseName(),
                 ContentAddressMethod::Raw::NixArchive,
@@ -3114,7 +3114,7 @@ std::optional<SourcePath> EvalState::resolveLookupPathPath(const LookupPath::Pat
             }
         }
 
-        if (path.pathExists())
+        if (path.resolveSymlinks().pathExists())
             return finish(std::move(path));
         else {
             logWarning({
@@ -3185,12 +3185,16 @@ std::ostream & operator << (std::ostream & str, const ExternalValueBase & v) {
     return v.print(str);
 }
 
-void forceNoNullByte(std::string_view s)
+void forceNoNullByte(std::string_view s, std::function<Pos()> pos)
 {
     if (s.find('\0') != s.npos) {
         using namespace std::string_view_literals;
         auto str = replaceStrings(std::string(s), "\0"sv, "␀"sv);
-        throw Error("input string '%s' cannot be represented as Nix string because it contains null bytes", str);
+        Error error("input string '%s' cannot be represented as Nix string because it contains null bytes", str);
+        if (pos) {
+            error.atPos(pos());
+        }
+        throw error;
     }
 }
 

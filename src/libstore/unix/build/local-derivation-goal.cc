@@ -531,13 +531,19 @@ void LocalDerivationGoal::startBuilder()
     killSandbox(false);
 
     /* Right platform? */
-    if (!parsedDrv->canBuildLocally(worker.store))
-        throw Error("a '%s' with features {%s} is required to build '%s', but I am a '%s' with features {%s}",
-            drv->platform,
-            concatStringsSep(", ", parsedDrv->getRequiredSystemFeatures()),
-            worker.store.printStorePath(drvPath),
-            settings.thisSystem,
-            concatStringsSep<StringSet>(", ", worker.store.systemFeatures));
+    if (!parsedDrv->canBuildLocally(worker.store)) {
+        // since aarch64-darwin has Rosetta 2, this user can actually run x86_64-darwin on their hardware - we should tell them to run the command to install Darwin 2
+        if (drv->platform == "x86_64-darwin" && settings.thisSystem == "aarch64-darwin") {
+            throw Error("run `/usr/sbin/softwareupdate --install-rosetta` to enable your %s to run programs for %s", settings.thisSystem, drv->platform);
+        } else {
+            throw Error("a '%s' with features {%s} is required to build '%s', but I am a '%s' with features {%s}",
+                drv->platform,
+                concatStringsSep(", ", parsedDrv->getRequiredSystemFeatures()),
+                worker.store.printStorePath(drvPath),
+                settings.thisSystem,
+                concatStringsSep<StringSet>(", ", worker.store.systemFeatures));
+        }
+    }
 
     /* Create a temporary directory where the build will take
        place. */
@@ -800,7 +806,7 @@ void LocalDerivationGoal::startBuilder()
            out. */
         for (auto & i : drv->outputsAndOptPaths(worker.store)) {
             /* If the name isn't known a priori (i.e. floating
-               content-addressed derivation), the temporary location we use
+               content-addressing derivation), the temporary location we use
                should be fresh.  Freshness means it is impossible that the path
                is already in the sandbox, so we don't need to worry about
                removing it.  */
@@ -2291,7 +2297,7 @@ SingleDrvOutputs LocalDerivationGoal::registerOutputs()
        to do anything here.
 
        We can only early return when the outputs are known a priori. For
-       floating content-addressed derivations this isn't the case.
+       floating content-addressing derivations this isn't the case.
      */
     if (hook)
         return DerivationGoal::registerOutputs();
@@ -2565,7 +2571,7 @@ SingleDrvOutputs LocalDerivationGoal::registerOutputs()
                 case FileIngestionMethod::Git: {
                     return git::dumpHash(
                         outputHash.hashAlgo,
-                        {getFSSourceAccessor(), CanonPath(tmpDir + "/tmp")}).hash;
+                        {getFSSourceAccessor(), CanonPath(actualPath)}).hash;
                 }
                 }
                 assert(false);
@@ -2657,10 +2663,14 @@ SingleDrvOutputs LocalDerivationGoal::registerOutputs()
                             wanted.to_string(HashFormat::SRI, true),
                             got.to_string(HashFormat::SRI, true)));
                 }
-                if (!newInfo0.references.empty())
+                if (!newInfo0.references.empty()) {
+                    auto numViolations = newInfo.references.size();
                     delayedException = std::make_exception_ptr(
-                        BuildError("illegal path references in fixed-output derivation '%s'",
-                            worker.store.printStorePath(drvPath)));
+                        BuildError("fixed-output derivations must not reference store paths: '%s' references %d distinct paths, e.g. '%s'",
+                            worker.store.printStorePath(drvPath),
+                            numViolations,
+                            worker.store.printStorePath(*newInfo.references.begin())));
+                }
 
                 return newInfo0;
             },

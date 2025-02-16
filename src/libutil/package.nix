@@ -1,18 +1,20 @@
-{ lib
-, stdenv
-, mkMesonLibrary
+{
+  lib,
+  stdenv,
+  mkMesonLibrary,
 
-, boost
-, brotli
-, libarchive
-, libcpuid
-, libsodium
-, nlohmann_json
-, openssl
+  boost,
+  brotli,
+  libarchive,
+  libblake3,
+  libcpuid,
+  libsodium,
+  nlohmann_json,
+  openssl,
 
-# Configuration Options
+  # Configuration Options
 
-, version
+  version,
 }:
 
 let
@@ -29,6 +31,7 @@ mkMesonLibrary (finalAttrs: {
     ./nix-meson-build-support
     ../../.version
     ./.version
+    ./widecharwidth
     ./meson.build
     ./meson.options
     ./linux/meson.build
@@ -40,10 +43,10 @@ mkMesonLibrary (finalAttrs: {
 
   buildInputs = [
     brotli
+    libblake3
     libsodium
     openssl
-  ] ++ lib.optional stdenv.hostPlatform.isx86_64 libcpuid
-  ;
+  ] ++ lib.optional stdenv.hostPlatform.isx86_64 libcpuid;
 
   propagatedBuildInputs = [
     boost
@@ -71,8 +74,6 @@ mkMesonLibrary (finalAttrs: {
     # https://github.com/NixOS/nixpkgs/issues/86131.
     BOOST_INCLUDEDIR = "${lib.getDev boost}/include";
     BOOST_LIBRARYDIR = "${lib.getLib boost}/lib";
-  } // lib.optionalAttrs (stdenv.isLinux && !(stdenv.hostPlatform.isStatic && stdenv.system == "aarch64-linux")) {
-    LDFLAGS = "-fuse-ld=gold";
   };
 
   meta = {

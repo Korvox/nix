@@ -47,6 +47,15 @@ static inline Value * mkString(EvalState & state, const std::csub_match & match)
     return v;
 }
 
+std::string EvalState::realiseString(Value & s, StorePathSet * storePathsOutMaybe, bool isIFD, const PosIdx pos)
+{
+    nix::NixStringContext stringContext;
+    auto rawStr = coerceToString(pos, s, stringContext, "while realising a string").toOwned();
+    auto rewrites = realiseContext(stringContext, storePathsOutMaybe, isIFD);
+
+    return nix::rewriteStrings(rawStr, rewrites);
+}
+
 StringMap EvalState::realiseContext(const NixStringContext & context, StorePathSet * maybePathsOut, bool isIFD)
 {
     std::vector<DerivedPath::Built> drvs;
@@ -1586,9 +1595,13 @@ static RegisterPrimOp primop_placeholder({
     .name = "placeholder",
     .args = {"output"},
     .doc = R"(
-      Return a placeholder string for the specified *output* that will be
-      substituted by the corresponding output path at build time. Typical
-      outputs would be `"out"`, `"bin"` or `"dev"`.
+      Return at
+      [output placeholder string](@docroot@/store/drv.md#output-placeholder)
+      for the specified *output* that will be substituted by the corresponding
+      [output path](@docroot@/glossary.md#gloss-output-path)
+      at build time.
+
+      Typical outputs would be `"out"`, `"bin"` or `"dev"`.
     )",
     .fun = prim_placeholder,
 });
@@ -2045,7 +2058,7 @@ static RegisterPrimOp primop_readFileType({
     .args = {"p"},
     .doc = R"(
       Determine the directory entry type of a filesystem node, being
-      one of "directory", "regular", "symlink", or "unknown".
+      one of `"directory"`, `"regular"`, `"symlink"`, or `"unknown"`.
     )",
     .fun = prim_readFileType,
 });
@@ -2126,12 +2139,15 @@ static RegisterPrimOp primop_outputOf({
     .name = "__outputOf",
     .args = {"derivation-reference", "output-name"},
     .doc = R"(
-      Return the output path of a derivation, literally or using a placeholder if needed.
+      Return the output path of a derivation, literally or using an
+      [input placeholder string](@docroot@/store/drv.md#input-placeholder)
+      if needed.
 
       If the derivation has a statically-known output path (i.e. the derivation output is input-addressed, or fixed content-addresed), the output path will just be returned.
-      But if the derivation is content-addressed or if the derivation is itself not-statically produced (i.e. is the output of another derivation), a placeholder will be returned instead.
+      But if the derivation is content-addressed or if the derivation is itself not-statically produced (i.e. is the output of another derivation), an input placeholder will be returned instead.
 
-      *`derivation reference`* must be a string that may contain a regular store path to a derivation, or may be a placeholder reference. If the derivation is produced by a derivation, you must explicitly select `drv.outPath`.
+      *`derivation reference`* must be a string that may contain a regular store path to a derivation, or may be an input placeholder reference.
+      If the derivation is produced by a derivation, you must explicitly select `drv.outPath`.
       This primop can be chained arbitrarily deeply.
       For instance,
 
@@ -2141,9 +2157,9 @@ static RegisterPrimOp primop_outputOf({
         "out"
       ```
 
-      will return a placeholder for the output of the output of `myDrv`.
+      will return a input placeholder for the output of the output of `myDrv`.
 
-      This primop corresponds to the `^` sigil for derivable paths, e.g. as part of installable syntax on the command line.
+      This primop corresponds to the `^` sigil for [deriving paths](@docroot@/glossary.md#gloss-deriving-paths), e.g. as part of installable syntax on the command line.
     )",
     .fun = prim_outputOf,
     .experimentalFeature = Xp::DynamicDerivations,
@@ -4059,7 +4075,7 @@ static RegisterPrimOp primop_toString({
 });
 
 /* `substring start len str' returns the substring of `str' starting
-   at character position `min(start, stringLength str)' inclusive and
+   at byte position `min(start, stringLength str)' inclusive and
    ending at `min(start + len, stringLength str)'.  `start' must be
    non-negative. */
 static void prim_substring(EvalState & state, const PosIdx pos, Value * * args, Value & v)
@@ -4098,7 +4114,7 @@ static RegisterPrimOp primop_substring({
     .name = "__substring",
     .args = {"start", "len", "s"},
     .doc = R"(
-      Return the substring of *s* from character position *start*
+      Return the substring of *s* from byte position *start*
       (zero-based) up to but not including *start + len*. If *start* is
       greater than the length of the string, an empty string is returned.
       If *start + len* lies beyond the end of the string or *len* is `-1`,

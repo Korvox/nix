@@ -4,8 +4,6 @@ project('nix-expr', 'cpp',
     'cpp_std=c++2a',
     # TODO(Qyriad): increase the warning level
     'warning_level=1',
-    'debug=true',
-    'optimization=2',
     'errorlogs=true', # Please print logs for tests that fail
   ],
   meson_version : '>= 1.1',
@@ -26,6 +24,7 @@ deps_public_maybe_subproject = [
   dependency('nix-fetchers'),
 ]
 subdir('nix-meson-build-support/subprojects')
+subdir('nix-meson-build-support/big-objs')
 
 boost = dependency(
   'boost',

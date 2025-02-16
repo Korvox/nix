@@ -4,8 +4,6 @@ project('nix-util', 'cpp',
     'cpp_std=c++2a',
     # TODO(Qyriad): increase the warning level
     'warning_level=1',
-    'debug=true',
-    'optimization=2',
     'errorlogs=true', # Please print logs for tests that fail
   ],
   meson_version : '>= 1.1',
@@ -64,6 +62,12 @@ elif host_machine.system() == 'sunos'
   deps_other += [socket, network_service_library]
 endif
 
+blake3 = dependency(
+  'libblake3',
+  version: '>= 1.5.5',
+)
+deps_private += blake3
+
 boost = dependency(
   'boost',
   modules : ['context', 'coroutine'],
@@ -107,6 +111,8 @@ deps_private += cpuid
 
 nlohmann_json = dependency('nlohmann_json', version : '>= 3.9')
 deps_public += nlohmann_json
+
+cxx = meson.get_compiler('cpp')
 
 config_h = configure_file(
   configuration : configdata,
@@ -168,6 +174,10 @@ sources = files(
 )
 
 include_dirs = [include_directories('.')]
+if not cxx.has_header('widechar_width.h', required : false)
+  # use vendored widechar_width.h
+  include_dirs += include_directories('./widecharwidth')
+endif
 
 headers = [config_h] + files(
   'abstract-setting-to-json.hh',

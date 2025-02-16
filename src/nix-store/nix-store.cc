@@ -183,9 +183,9 @@ static void opAdd(Strings opFlags, Strings opArgs)
     if (!opFlags.empty()) throw UsageError("unknown flag");
 
     for (auto & i : opArgs) {
-        auto [accessor, canonPath] = PosixSourceAccessor::createAtRoot(i);
+        auto sourcePath = PosixSourceAccessor::createAtRoot(makeParentCanonical(i));
         cout << fmt("%s\n", store->printStorePath(store->addToStore(
-            std::string(baseNameOf(i)), {accessor, canonPath})));
+            std::string(baseNameOf(i)), sourcePath)));
     }
 }
 
@@ -207,10 +207,10 @@ static void opAddFixed(Strings opFlags, Strings opArgs)
     opArgs.pop_front();
 
     for (auto & i : opArgs) {
-        auto [accessor, canonPath] = PosixSourceAccessor::createAtRoot(i);
+        auto sourcePath = PosixSourceAccessor::createAtRoot(makeParentCanonical(i));
         std::cout << fmt("%s\n", store->printStorePath(store->addToStoreSlow(
             baseNameOf(i),
-            {accessor, canonPath},
+            sourcePath,
             method,
             hashAlgo).path));
     }
@@ -252,7 +252,7 @@ static StorePathSet maybeUseOutputs(const StorePath & storePath, bool useOutput,
             return store->queryDerivationOutputs(storePath);
         for (auto & i : drv.outputsAndOptPaths(*store)) {
             if (!i.second.second)
-                throw UsageError("Cannot use output path of floating content-addressed derivation until we know what it is (e.g. by building it)");
+                throw UsageError("Cannot use output path of floating content-addressing derivation until we know what it is (e.g. by building it)");
             outputs.insert(*i.second.second);
         }
         return outputs;

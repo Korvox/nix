@@ -42,11 +42,6 @@ struct Input
     Attrs attrs;
 
     /**
-     * path of the parent of this input, used for relative path resolution
-     */
-    std::optional<Path> parent;
-
-    /**
      * Cached result of getFingerprint().
      */
     mutable std::optional<std::optional<std::string>> cachedFingerprint;
@@ -94,6 +89,12 @@ public:
      * identify its contents.
      */
     bool isLocked() const;
+
+    /**
+     * Only for relative path flakes, i.e. 'path:./foo', returns the
+     * relative path, i.e. './foo'.
+     */
+    std::optional<std::string> isRelative() const;
 
     /**
      * Return whether this is a "final" input, meaning that fetching
@@ -154,7 +155,7 @@ public:
 
     void clone(const Path & destDir) const;
 
-    std::optional<Path> getSourcePath() const;
+    std::optional<std::filesystem::path> getSourcePath() const;
 
     /**
      * Write a file to this input, for input types that support
@@ -237,7 +238,7 @@ struct InputScheme
 
     virtual void clone(const Input & input, const Path & destDir) const;
 
-    virtual std::optional<Path> getSourcePath(const Input & input) const;
+    virtual std::optional<std::filesystem::path> getSourcePath(const Input & input) const;
 
     virtual void putFile(
         const Input & input,
@@ -260,6 +261,9 @@ struct InputScheme
 
     virtual bool isLocked(const Input & input) const
     { return false; }
+
+    virtual std::optional<std::string> isRelative(const Input & input) const
+    { return std::nullopt; }
 };
 
 void registerInputScheme(std::shared_ptr<InputScheme> && fetcher);
