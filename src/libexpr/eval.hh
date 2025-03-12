@@ -159,7 +159,7 @@ void printEnvBindings(const SymbolTable & st, const StaticEnv & se, const Env & 
 
 std::unique_ptr<ValMap> mapStaticEnvBindings(const SymbolTable & st, const StaticEnv & se, const Env & env);
 
-void copyContext(const Value & v, NixStringContext & context);
+void copyContext(const Value & v, NixStringContext & context, const ExperimentalFeatureSettings & xpSettings = experimentalFeatureSettings);
 
 
 std::string printValue(EvalState & state, Value & v);
@@ -390,6 +390,15 @@ public:
     SourcePath rootPath(PathView path);
 
     /**
+     * Return a `SourcePath` that refers to `path` in the store.
+     *
+     * For now, this has to also be within the root filesystem for
+     * backwards compat, but for Windows and maybe also pure eval, we'll
+     * probably want to do something different.
+     */
+    SourcePath storePath(const StorePath & path);
+
+    /**
      * Allow access to a path.
      */
     void allowPath(const Path & path);
@@ -501,7 +510,7 @@ public:
      */
     void forceFunction(Value & v, const PosIdx pos, std::string_view errorCtx);
     std::string_view forceString(Value & v, const PosIdx pos, std::string_view errorCtx);
-    std::string_view forceString(Value & v, NixStringContext & context, const PosIdx pos, std::string_view errorCtx);
+    std::string_view forceString(Value & v, NixStringContext & context, const PosIdx pos, std::string_view errorCtx, const ExperimentalFeatureSettings & xpSettings = experimentalFeatureSettings);
     std::string_view forceStringNoCtx(Value & v, const PosIdx pos, std::string_view errorCtx);
 
     template<typename... Args>
@@ -553,7 +562,7 @@ public:
     /**
      * Part of `coerceToSingleDerivedPath()` without any store IO which is exposed for unit testing only.
      */
-    std::pair<SingleDerivedPath, std::string_view> coerceToSingleDerivedPathUnchecked(const PosIdx pos, Value & v, std::string_view errorCtx);
+    std::pair<SingleDerivedPath, std::string_view> coerceToSingleDerivedPathUnchecked(const PosIdx pos, Value & v, std::string_view errorCtx, const ExperimentalFeatureSettings & xpSettings = experimentalFeatureSettings);
 
     /**
      * Coerce to `SingleDerivedPath`.
